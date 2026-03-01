@@ -1,0 +1,51 @@
+# Train
+batch_size: 256           # effective batch size (will accumulate if > gpu_max_bs)
+gpu_max_bs: 64            # max batch size per GPU step
+num_epochs: 50
+lr: 1e-4
+lr_schedule: null         # cosine, null
+clip_grad: 1.0
+weight_decay: 0.0
+adam_betas:
+  - 0.9
+  - 0.95
+amp: true
+seed: 0
+
+log_interval: 100
+save_interval: 10
+checkpoint: null
+resume: true
+compile: false
+root_dir: null
+run_name: default_run_name
+
+# Wandb
+use_wandb: false
+wandb_group: null
+wandb_entity: null
+wandb_project: null
+
+# Debug
+quick: false
+profile: false
+
+# Checkpoints to reuse (frozen)
+motion_tokenizer_checkpoint: null
+inverse_dynamics_checkpoint: null
+
+# Dataset
+num_workers: 4
+train_datasets: null
+val_datasets: null
+task_names: null
+
+# CTCLAI heads
+action_mlp_hidden: null
+action_mlp_layers: 2
+dropout: 0.0
+
+# Losses
+tok_loss_weight: 1.0
+risk_loss_weight: 1.0
+risk_discount: 0.99
