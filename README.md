@@ -3,7 +3,6 @@
 ### Take-Home Submission – Modular World Models (AMPLIFY)
 
 Author: Zahid Hasan Pranto  
-Date: 2026  
 
 ---
 
