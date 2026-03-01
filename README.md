@@ -1,140 +1,177 @@
-
-# CTCLAI: Constrained Token-Consistent Inference  
-### Take-Home Submission – Modular World Models (AMPLIFY)
-
-Author: Zahid Hasan Pranto  
+# CTCLAI: Constrained Token-Consistent Inference for AMPLIFY
+Take-Home Submission — Zahid Hasan Pranto (2026)
 
 ---
 
-## 1. Objective
+## Overview
 
-This repository implements **CTCLAI**, an inference-time improvement for the modular world model **AMPLIFY**.
+This repository extends **AMPLIFY** (Learning Actionless Motion Priors through Video) with an inference-time improvement:
+
+> **CTCLAI — Constrained Token-Consistent, Loss-Aware Inference**
 
 AMPLIFY decomposes policy learning into:
-1. Motion Tokenization (video → discrete tokens)  
-2. Forward Dynamics in token space  
-3. Inverse Dynamics (tokens → action chunk)
 
-A key failure mode in this decomposition is **plan–act mismatch**:
-the decoded action chunk may not realize the predicted token rollout.
+1. Motion Tokenization  
+2. Forward Dynamics in Token Space  
+3. Inverse Dynamics (Tokens → Action Chunks)
 
-CTCLAI addresses this by introducing constrained candidate selection at inference time.
+While modularization improves data efficiency, it introduces a failure mode:
+
+**Plan–Act Mismatch:**  
+The inverse dynamics output may not realize the predicted motion-token plan.
+
+CTCLAI modifies only the inference procedure to reduce this mismatch.
 
 ---
 
-## 2. Method Summary
+## Repository Structure
 
-At each timestep:
+```
 
-1. Predict token rollout using the forward model.
-2. Sample **N** candidate action chunks from the inverse policy.
-3. Score each candidate using:
-   - **Token consistency** (does the action realize the planned tokens?)
-   - **Predicted future loss**
-   - **Policy likelihood prior**
-4. Execute the best candidate.
+AMPLIFY-main/
+├── train_motion_tokenizer.py
+├── train_forward_dynamics.py
+├── train_inverse_dynamics.py
+├── train_ctclai.py
+├── eval_libero.py
+│
+├── amplify/
+│   ├── amplify.py
+│   └── bundle_amplify.py
+│
+├── cfg/
+│   ├── train_motion_tokenizer.yaml
+│   ├── train_forward_dynamics.yaml
+│   ├── train_inverse_dynamics.yaml
+│   ├── train_ctclai.yaml
+│   └── eval_libero.yaml
+│
+├── preprocessing/
+│   └── preprocess_libero.py
+
+````
+
+---
+
+## Installation
+
+### 1. Create environment
+
+```bash
+conda create -n amplify_ctclai python=3.10
+conda activate amplify_ctclai
+````
+
+### 2. Install dependencies
+
+```bash
+pip install -r requirements.txt
+pip install -e .
+```
+
+---
+
+## Dataset Setup (LIBERO)
+
+1. Download LIBERO dataset (see official LIBERO repo).
+2. Update dataset path inside:
+
+```
+cfg/train_*.yaml
+cfg/eval_libero.yaml
+```
+
+---
+
+## Training Pipeline (AMPLIFY Baseline)
+
+### 1. Train Motion Tokenizer
+
+```bash
+python train_motion_tokenizer.py \
+    --config-name=train_motion_tokenizer
+```
+
+### 2. Train Forward Dynamics
+
+```bash
+python train_forward_dynamics.py \
+    --config-name=train_forward_dynamics
+```
+
+### 3. Train Inverse Dynamics
+
+```bash
+python train_inverse_dynamics.py \
+    --config-name=train_inverse_dynamics
+```
+
+---
+
+## Baseline Evaluation (LIBERO)
+
+```bash
+python eval_libero.py \
+    --config-name=eval_libero
+```
+
+This performs:
+
+* Token rollout (T=16)
+* Gaussian inverse decoding
+* ACT-style temporal ensembling
+* Success rate evaluation
+
+---
+
+## CTCLAI Training
+
+CTCLAI adds constrained inference scoring.
+
+Train CTCLAI components:
+
+```bash
+python train_ctclai.py \
+    --config-name=train_ctclai
+```
+
+This trains:
+
+* Token-consistency scorer
+* Future-loss predictor
 
 No retraining of tokenizer or forward model is required.
 
 ---
 
-## 3. Repository Structure
+## CTCLAI Evaluation
 
-```
-.
-├── models/
-│   ├── token_predictor.py
-│   └── loss_predictor.py
-├── inference/
-│   └── ctclai_wrapper.py
-├── experiments/
-│   ├── train_token_predictor.py
-│   ├── train_loss_predictor.py
-│   ├── run_baseline.py
-│   └── run_ctclai.py
-├── configs/
-│   └── libero10.yaml
-└── main.tex
-
-````
-
----
-
-## 4. Setup
-
-### Environment
+Run evaluation with CTCLAI enabled:
 
 ```bash
-conda create -n ctclai python=3.10
-conda activate ctclai
-pip install torch torchvision numpy tqdm hydra-core
-````
-
-Ensure LIBERO dataset path is set in:
-
-```
-configs/libero10.yaml
+python eval_libero.py \
+    --config-name=eval_libero \
+    ctclai.enable=true \
+    ctclai.N=8 \
+    ctclai.lambda_tok=1.0 \
+    ctclai.lambda_loss=1.0 \
+    ctclai.lambda_prior=0.1
 ```
 
 ---
 
-## 5. Baseline Reproduction
+## Method Summary
 
-Run standard AMPLIFY inference:
-
-```bash
-python experiments/run_baseline.py \
-    --config configs/libero10.yaml \
-    --seed 0
-```
-
-This evaluates:
-
-* Token rollout (T = 16)
-* Gaussian inverse decoding
-* ACT-style temporal ensembling
-* LIBERO-10 success rate
-
----
-
-## 6. Training Auxiliary Predictors
-
-### Token Consistency Model
-
-```bash
-python experiments/train_token_predictor.py \
-    --config configs/libero10.yaml
-```
-
-### Future-Loss Predictor
-
-```bash
-python experiments/train_loss_predictor.py \
-    --config configs/libero10.yaml
-```
-
----
-
-## 7. Running CTCLAI
-
-```bash
-python experiments/run_ctclai.py \
-    --config configs/libero10.yaml \
-    --N 8 \
-    --lambda_tok 1.0 \
-    --lambda_loss 1.0 \
-    --lambda_prior 0.1
-```
-
----
-
-## 8. Core Equation
-
-For candidate action (a^{(i)}):
+For predicted token plan:
 
 [
-a^* =
-\arg\min_i
+\hat{z}_{t:t+T}
+]
+
+For each sampled action chunk (a^{(i)}):
+
+[
+a^* = \arg\min_i
 \lambda_{tok} C_{tok}
 +
 \lambda_{loss} C_{loss}
@@ -142,25 +179,33 @@ a^* =
 \lambda_{prior} C_{prior}
 ]
 
-where:
+Where:
 
 * (C_{tok}): token-plan consistency
-* (C_{loss}): predicted future risk
-* (C_{prior}): policy likelihood
+* (C_{loss}): predicted horizon risk
+* (C_{prior}): inverse policy likelihood
 
 ---
 
-## 9. Evaluation
+## Evaluation Protocol
 
 Evaluate:
 
 * Baseline vs CTCLAI
 * Success vs candidate count (N = 1, 4, 8, 16)
-* Token mismatch reduction
+* Plan–act mismatch reduction
 * Compute overhead
+
+All experiments:
+
+* Horizon T = 16
+* Same tokenizer & forward checkpoints
+* Same seeds
 
 ---
 
-## 10. Contribution
+## Contribution
 
 CTCLAI introduces a constrained inference operator for modular latent world models, improving robustness without modifying AMPLIFY’s training pipeline.
+
+---
