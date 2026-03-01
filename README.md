@@ -160,33 +160,6 @@ python eval_libero.py \
 
 ---
 
-## Method Summary
-
-For predicted token plan:
-
-[
-\hat{z}_{t:t+T}
-]
-
-For each sampled action chunk (a^{(i)}):
-
-[
-a^* = \arg\min_i
-\lambda_{tok} C_{tok}
-+
-\lambda_{loss} C_{loss}
-+
-\lambda_{prior} C_{prior}
-]
-
-Where:
-
-* (C_{tok}): token-plan consistency
-* (C_{loss}): predicted horizon risk
-* (C_{prior}): inverse policy likelihood
-
----
-
 ## Evaluation Protocol
 
 Evaluate:
