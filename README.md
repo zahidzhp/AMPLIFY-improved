@@ -1,5 +1,5 @@
 # CTCLAI: Constrained Token-Consistent Inference for AMPLIFY
-Take-Home Submission — Zahid Hasan Pranto (2026)
+Zahid Hasan Pranto (2026)
 
 ---
 
